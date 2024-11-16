@@ -1,164 +1,51 @@
-# RRT-pathplanning
-clc;
-clear;
-%% Create and plot obstacles
-xrange = [0 1200];
-yrange = [590 1200];
-zrange = [0 1200];
- 
-% Create grid points
-[X, Y] = meshgrid(xrange(1):15:xrange(2), yrange(1):15:yrange(2));
- 
-% Calculate the height of the grid points
-R = sqrt(((X-600)/1.5).^2 + ((Y-600)/1.5).^2);
-Z = 90 * sin(R/800) .* exp(-R/800) + 600*exp(-((X-600).^2 + (Y-600).^2)/300000);
- 
-% Limit the height within the coordinate system range
-Z(Z > zrange(2)) = zrange(2);
-Z(Z < zrange(1)) = zrange(1);
- 
-% Convert grid points to scatter points
-scatter3(X(:),Y(:), Z(:), 'filled','MarkerFaceAlpha',.2,'MarkerEdgeAlpha',.2);
- 
-map = [0.99 0.90 0.79
-    0.99 0.90 0.79
-    0.99 0.90 0.79
-    0.99 0.90 0.79
-    0.99 0.90 0.79
-    0.99 0.90 0.79];
-% Plot 3D surface
-surf(X, Y, Z,'EdgeColor','0.5 0.54 0.53');
-colormap(map);
-axis equal;
- 
-%% Create start and goal positions and plot them
-aa = 600;
-start = [0 600 300];
-goal = [1000 600 1200];
-hold on;
-scatter3(start(1),start(2),start(3),'filled','g');
-scatter3(goal(1),goal(2),goal(3),'filled','g');
- 
-%% Annotate the plot
-text(start(1)-40,start(2),start(3)+50,'start','color','g');
-text(goal(1),goal(2),goal(3),'goal4','color','g');
-view(3);
-grid on;
-axis equal;
-axis([0 1200 0 1200 0 1200]);
-xlabel('x');
-ylabel('y');
-zlabel('z');
- 
-%% RRT method to generate obstacle-avoiding trajectory
-path = RRT(start,goal,Z);
- 
-function path = RRT(start,goal,Z)
-%% Define RRT parameters
-stepSize = 15;                           
-maxIterTimes = 10000;                     
-iterTime = 0;                            
-threshold = 20;                          
-RRTree = double([start -1]);             
- 
-p = 0.3;
-vlei = 0;
-V=0;
-c=0;
-leng = 0;
-searchSize = [1000,1000,1000];
-calcDis = @(a,b) sqrt((b(:,1)-a(1,1)).^2 + (b(:,2)-a(1,2)).^2 + (b(:,3)-a(1,3)).^2);
-goald = 0;
- 
-%% Find RRT path
-tic                       
-pathFound = false;
-while iterTime <= maxIterTimes
-    iterTime = iterTime +1;
-    disp(iterTime);
-    if rand < 0.999
-        sample = [rand() *1000, 600,rand() *1200];  
-    else
-        sample = [1000 600 1200];
-    end
-    [val,nearIndex] = min(calcDis(sample, RRTree(:,1:3)),[],1);       
-    closestNode = RRTree(nearIndex,1:3);
-    leng=length(RRTree);
-    growVec = sample - closestNode;
-    growVec = growVec/sqrt(sum(growVec.^2));
-    newPoint = closestNode + growVec*stepSize;
-    
-    feasible = collisionDetec(newPoint,closestNode);   
-    
-    if V<= 3000                        
-        if (~feasible)&&(dis(newPoint,[600,600,0])>dis(closestNode,[600,600,0]))   
-            continue;
-        end
-    end
-    
-    RRTree = [RRTree;newPoint nearIndex];
-    plot3([closestNode(1) newPoint(1)],[closestNode(2) newPoint(2)],[closestNode(3) newPoint(3)],'LineWidth',1,'Color',[0.25,0.41,1]);
-    pause(0.01);
-    if newPoint(3) <= ZXY(round(newPoint(1)),round(newPoint(1)))   
-        V = V + abs((newPoint(1)-closestNode(1))*2);
-    end
-    goald = newPoint(3);
-    
-    disp(newPoint)
-    
-    if ((newPoint(3)<ZXY(newPoint(1),newPoint(2)))&&((newPoint(3)+20)>ZXY(newPoint(1),newPoint(2))))
-        V2 = 2800+0.5*(1000-newPoint(1))*500;
-        if V<V2
-           c = -1;
-        end
-    end   
-     
-    p = 0.1+V/3000+c;   
-    c=0;
-    
-    if sqrt(sum((newPoint - goal).^2)) <= threshold
-        pathFound = true;
-        break;           
-    end 
-end
- 
-if ~pathFound
-    disp('no path found. maximum attempts reached');
-end
- 
-toc
- 
-%% Trace back the path
-path = goal;
-lastNode = nearIndex;           
-while lastNode >= 0
-    path =[RRTree(lastNode,1:3); path];         
-    lastNode = RRTree(lastNode, 4);             
-end
-plot3(path(:,1), path(:,2), path(:,3),'LineWidth',1,'Color','r');
-disp(path)
- 
-end
- 
-function feasible = collisionDetec(newPoint,closestNode)
-feasible = true;
-checkVec = newPoint - closestNode;    
-for i = 0:0.5:sqrt(sum(checkVec.^2))
-    checkPoint = closestNode + i.*(checkVec/sqrt(sum(checkVec.^2)));     
-    a = round(checkPoint(1));
-    b = round(checkPoint(2));
-    if checkPoint(3) >= ZXY(a, b)
-        feasible = false;
-    break; 
-    end
-end
-end
- 
-function ZZ = ZXY(x, y)
-r = sqrt(((x-600)/1.5).^2 + ((y-600)/1.5).^2);
-ZZ = 90 * sin(r/800) .* exp(-r/800) + 600*exp(-((x-600).^2 + (y-600).^2)/300000);
-end
- 
-function distance = dis(X,Y)
-distance = norm(X-Y);
-end
+
+Environment Setup
+Obstacle Creation:
+A grid of points is created within specified x, y, and z ranges.
+The height (z-value) of each grid point is calculated using a function that creates a smooth, wavy surface with a peak at the center.
+The heights are adjusted to ensure they stay within the defined z-range.
+Visualization:
+The obstacles are visualized using a combination of scatter3 and surf functions to create a 3D scatter plot and surface plot respectively.
+The environment is colored using a custom colormap.
+Start and Goal Positions:
+The start and goal positions are defined and visualized using green markers.
+Text labels are added near these positions for clarity.
+RRT Algorithm Implementation
+Parameters
+stepSize: The length of each step in the RRT algorithm.
+maxIterTimes: The maximum number of iterations the algorithm will run before stopping.
+threshold: The distance threshold for considering the goal reached.
+p: Probability for choosing between a random sample and the goal position.
+Algorithm Steps
+Initialization:
+The RRT tree is initialized with the start position.
+Various other variables are initialized for tracking iterations, volumes, etc.
+Main Loop:
+The algorithm iterates until either a path is found or the maximum number of iterations is reached.
+In each iteration:
+A random sample point is generated within the search space, with a bias towards the goal position based on the probability p.
+The nearest node in the RRT tree to the sample point is found.
+A new point is calculated in the direction of the sample point from the nearest node, at a distance of stepSize.
+A collision check is performed to ensure the new point does not intersect with the obstacles.
+If the new point is feasible (i.e., no collision), it is added to the RRT tree.
+The algorithm checks if the new point is within the threshold distance to the goal. If yes, the path is found.
+Collision Detection:
+A function collisionDetec checks if the line segment from the nearest node to the new point intersects with any obstacles by sampling points along the segment and checking their heights against the obstacle surface.
+Path Reconstruction:
+If a path is found, it is reconstructed by tracing back from the goal node to the start node using the parent indices stored in the RRT tree.
+Visualization:
+The RRT tree and the final path are visualized in the 3D plot.
+Additional Features
+Volume Calculation:
+An attempt is made to calculate a cumulative "volume" as the RRT expands, influencing the probability p dynamically. This feature is experimental and may need refinement.
+Dynamic Probability Adjustment:
+The probability p for choosing the goal as a sample point is adjusted dynamically based on the progress of the algorithm.
+Usage
+Ensure MATLAB is installed on your system.
+Copy the provided script into a new MATLAB script file (e.g., RRT_PathPlanning.m).
+Run the script in MATLAB.
+Observe the 3D plot that shows the obstacles, start and goal positions, RRT tree expansion, and the final path (if found).
+Notes
+The script uses a simplified collision detection method and volume calculation, which may need to be adjusted or replaced with more accurate methods depending on the specific application.
+The algorithm parameters (e.g., stepSize, maxIterTimes, threshold) can be tuned for better performance in different environments.
+The script includes basic visualization and debugging output (e.g., iteration count, new point coordinates). This can be expanded or modified for more detailed analysis or customization.
